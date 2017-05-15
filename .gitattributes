@@ -1,22 +1,12 @@
-# Auto detect text files and perform LF normalization
-* text=auto
-
-# Custom for Visual Studio
-*.cs     diff=csharp
-*.sln    merge=union
-*.csproj merge=union
-*.vbproj merge=union
-*.fsproj merge=union
-*.dbproj merge=union
-
-# Standard to msysgit
-*.doc	 diff=astextplain
-*.DOC	 diff=astextplain
-*.docx diff=astextplain
-*.DOCX diff=astextplain
-*.dot  diff=astextplain
-*.DOT  diff=astextplain
+*.c linguist-language=C
+*.h linguist-language=C
+*.cdata linguist-language=C
+*.asm linguist-language=Assembly
+*.inc linguist-language=Assembly
+*.s linguist-language=Assembly
+*.S linguist-language=Assembly
+Makefile.* linguist-language=Makefile
+Makefile linguist-language=Makefile
+*.mk linguist-language=Makefile
+*.py linguist-language=Python
 *.pdf  diff=astextplain
-*.PDF	 diff=astextplain
-*.rtf	 diff=astextplain
-*.RTF	 diff=astextplain

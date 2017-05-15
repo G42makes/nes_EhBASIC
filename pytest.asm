@@ -1,0 +1,77 @@
+; Simple EhBasic test to be run in the emulator in this repository.
+; NOTE: there is no IRQ/NMI support, also no implemented SAVE/LOAD.
+; (C)2017 LGB (Gábor Lénárt)
+; https://github.com/lgblgblgb/6502_EhBASIC_V2.22
+; This source is "public domain", however I am happy if you give
+; me credit, on the idea/code, or whatever. IMPORTANT: the copyright
+; of EhBasic itself, and used patch on that is a TOTALLY DIFFERENT
+; STORY!!!! 
+
+.SEGMENT "STARTUP"
+; STARTUP segment is the first, so the binary will begin with this
+JMP	main
+
+; We use illegal opcodes as traps from the emulator in this test!
+TRAP_PUTCH		= $02
+TRAP_GETKEY_NOWAIT	= $12
+TRAP_GETKEY_WAIT	= $22
+TRAP_GETKEY_STR_EXIT	= $32
+
+; EhBasic input buffer size. DO NOT used more than 127 bytes!
+.EXPORT EhBasic_InputBuffer_Size
+EhBasic_InputBuffer_Size = 80
+
+
+.EXPORT EhBasic_Ram_base
+.EXPORT EhBasic_Ram_top
+EhBasic_Ram_base 	= $0300		; page aligned!
+EhBasic_Ram_top		= $C000		; Ram_top + 1, page aligned!
+
+.SEGMENT "EHBASIC"
+
+; You can defined the 'Ready' prompt here, so it's easy to set one what you like,
+; without the need to edit basic.asm
+.EXPORT EhBasic_Ready_Prompt
+EhBasic_Ready_Prompt:
+	.BYTE   $0D,$0A,"Ready.",$0D,$0A,$00
+
+
+; Get key for EhBASIC, with *NO* wait.
+; EhBasic excepts this routing to return key code in A with Carry set,
+; otherwise (if no key is pressed), Carry clear.
+.EXPORT EhBasic_SysCall_Input
+.PROC EhBasic_SysCall_Input
+	.BYTE TRAP_GETKEY_NOWAIT
+	CMP	#0	; trap does not set flags on modify A ...
+	BEQ	no_input
+	SEC
+	RTS
+no_input:
+	CLC
+	RTS
+.ENDPROC
+
+; Putchar implementation for EhBASIC. Character to output is in A.
+; You should not modify A!
+.EXPORT EhBasic_SysCall_Output
+.PROC EhBasic_SysCall_Output
+	.BYTE TRAP_PUTCH
+	RTS
+.ENDPROC
+
+; Load and save implementations.
+.EXPORT EhBasic_SysCall_Load
+.EXPORT EhBasic_SysCall_Save
+EhBasic_SysCall_Load:
+EhBasic_SysCall_Save:
+	RTS	; unimplemented for now ...
+
+
+
+.IMPORT EhBasic_cold_start
+.PROC main
+	CLD
+	LDX	#$FF
+	TXS
+	JMP	EhBasic_cold_start
+.ENDPROC
