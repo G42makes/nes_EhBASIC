@@ -423,17 +423,6 @@ LAB_SKFE	= LAB_STAK+$FE
 LAB_SKFF	= LAB_STAK+$FF
 				; flushed stack address
 
-; These must MATCH (as offsets) with stuffs at PG2_TABS
-
-ccflag		= $0200		; BASIC CTRL-C flag, 00 = enabled, 01 = dis
-ccbyte		= ccflag+1	; BASIC CTRL-C byte
-ccnull		= ccbyte+1	; BASIC CTRL-C byte timeout
-VEC_CC		= ccnull+1	; ctrl c check vector
-VEC_IN		= VEC_CC+2	; input vector
-VEC_OUT		= VEC_IN+2	; output vector
-VEC_LD		= VEC_OUT+2	; load vector
-VEC_SV		= VEC_LD+2	; save vector
-
 
 ; Ibuffs can now be anywhere in RAM, ensure that the max length is < $80
 
@@ -442,9 +431,12 @@ VEC_SV		= VEC_LD+2	; save vector
 ; Ibuffe		= Ibuffs+$47; end of input buffer
 
 
+.IMPORT __PAGE2_EHBASIC_LOAD__
+.IMPORT __PAGE2_EHBASIC_SIZE__
+.IMPORT __PAGE2_EHBASIC_RUN__
 .IMPORTZP EhBasic_InputBuffer_Size
-Ibuffs = $0280
-Ibuffe = $0280 + EhBasic_InputBuffer_Size
+Ibuffs = __PAGE2_EHBASIC_RUN__ + $80
+Ibuffe = Ibuffs + EhBasic_InputBuffer_Size
 
 
 ;Ram_base		= $0300	; start of user RAM (set as needed, should be page aligned)
@@ -466,12 +458,13 @@ Ram_top  = EhBasic_Ram_top
 .EXPORT EhBasic_cold_start
 EhBasic_cold_start = LAB_COLD
 
+
 LAB_COLD:
-	LDY	#PG2_TABE-PG2_TABS-1
+	LDY	#.LOBYTE(__PAGE2_EHBASIC_SIZE__)
 					; byte count-1
 LAB_2D13:
-	LDA	PG2_TABS,Y		; get byte
-	STA	ccflag,Y		; store in page 2
+	LDA	__PAGE2_EHBASIC_LOAD__,Y	; get byte
+	STA	__PAGE2_EHBASIC_RUN__,Y		; store in page 2
 	DEY				; decrement count
 	BPL	LAB_2D13		; loop if not done
 
@@ -515,6 +508,7 @@ TabLoop:
 	STA	g_step		; save it
 	LDX	#des_sk		; descriptor stack start
 	STX	next_s		; set descriptor stack pointer
+.IFNDEF EHBASIC_PATCH_DISABLE_ASK_MEMORY_SIZE
 	JSR	LAB_CRLF		; print CR/LF
 	LDA	#<LAB_MSZM		; point to memory size message (low addr)
 	LDY	#>LAB_MSZM		; point to memory size message (high addr)
@@ -582,6 +576,11 @@ LAB_2DB6:
 ;	BCS	LAB_GMEM		; if too large go try again
 
 ;MEM_OK
+.ELSE
+.WARNING "Compiling 'disable ask memory size' patch in ..."
+	LDA	#.LOBYTE(Ram_top)
+	LDY	#.HIBYTE(Ram_top)
+.ENDIF
 	STA	Ememl			; set end of mem low byte
 	STY	Ememh			; set end of mem high byte
 	STA	Sstorl		; set bottom of string space low byte
@@ -605,7 +604,11 @@ LAB_2DB6:
 
 ;	INC	Smemh			; increment start of mem high byte
 LAB_2E05:
-	JSR	LAB_CRLF		; print CR/LF
+	LDA	#<LAB_SMSG_PRE		; plus feature
+	LDY	#>LAB_SMSG_PRE		; plus feature
+	JSR	LAB_18C3		; plus feature
+
+;	JSR	LAB_CRLF		; print CR/LF
 	JSR	LAB_1463		; do "NEW" and "CLEAR"
 	LDA	Ememl			; get end of mem low byte
 	SEC				; set carry for subtract
@@ -7161,14 +7164,18 @@ LAB_HEXS:
 	JSR	LAB_MSSP		; make string space A bytes long
 	LDY	#$05			; set string index
 
+.IFNDEF EHBASIC_PATCH_DISABLE_INVALID_BCD
 	SED				; need decimal mode for nibble convert
+.ENDIF
 	LDA	nums_3		; get lowest byte
 	JSR	LAB_A2HX		; convert A to ASCII hex byte and output
 	LDA	nums_2		; get middle byte
 	JSR	LAB_A2HX		; convert A to ASCII hex byte and output
 	LDA	nums_1		; get highest byte
 	JSR	LAB_A2HX		; convert A to ASCII hex byte and output
+.IFNDEF EHBASIC_PATCH_DISABLE_INVALID_BCD
 	CLD				; back to binary
+.ENDIF
 
 	LDX	#$06			; character count
 	LDA	TempB			; get # of characters
@@ -7195,6 +7202,12 @@ LAB_A2HX:
 	LSR				; /16
 LAB_AL2X:
 	CMP	#$0A			; set carry for +1 if >9
+.IFDEF EHBASIC_PATCH_DISABLE_INVALID_BCD
+.WARNING "Compiling 'disable invalid BCD' patch in ..."
+	BCC	LAB_AL20		; skip adjust if <= 9
+	ADC	#$06			; adjust for A to F
+LAB_AL20:
+.ENDIF
 	ADC	#'0'			; add ASCII "0"
 	STA	(str_pl),Y		; save to temp string
 	DEY				; decrement counter
@@ -7766,22 +7779,6 @@ V_SAVE:
 ; the rest of the code is tables and BASIC start-up code
 
 
-.IMPORT EhBasic_SysCall_Input   ; non halting scan input device routine, defined by system
-.IMPORT EhBasic_SysCall_Output  ; send byte to output device, defined by system
-.IMPORT EhBasic_SysCall_Load    ; load BASIC program, defined by system
-.IMPORT EhBasic_SysCall_Save    ; save BASIC program, defined by system
-
-PG2_TABS:
-	.byte	$00			; ctrl-c flag		-	$00 = enabled
-	.byte	$00			; ctrl-c byte		-	GET needs this
-	.byte	$00			; ctrl-c byte timeout	-	GET needs this
-	.word	CTRLC			; ctrl c check vector
-	.word	EhBasic_SysCall_Input	; non halting key input	-	monitor to set this
-	.word	EhBasic_SysCall_Output	; output vector		-	monitor to set this
-	.word	EhBasic_SysCall_Load	; load vector		-	monitor to set this
-	.word	EhBasic_SysCall_Save	; save vector		-	monitor to set this
-PG2_TABE:
-
 ; character get subroutine for zero page
 
 ; For a 1.8432MHz 6502 including the JSR and RTS
@@ -7845,12 +7842,16 @@ StrTab:
 	.word	Ram_base		; start of user RAM
 EndTab:
 
+.IFNDEF EHBASIC_PATCH_DISABLE_ASK_MEMORY_SIZE
 LAB_MSZM:
 	.byte	$0D,$0A,"Memory size ",$00
+.ENDIF
 
-LAB_SMSG:
-	.byte	" Bytes free",$0D,$0A,$0A
-	.byte	"Enhanced BASIC 2.22",$0A,$00
+.IMPORT EhBasic_Banner_Pre
+.IMPORT EhBasic_Banner_Free
+LAB_SMSG_PRE = EhBasic_Banner_Pre
+LAB_SMSG = EhBasic_Banner_Free
+
 
 ; numeric constants and series
 
@@ -8740,4 +8741,20 @@ LAB_RMSG = EhBasic_Ready_Prompt
 LAB_IMSG:	.byte	" Extra ignored",$0D,$0A,$00
 LAB_REDO:	.byte	" Redo from start",$0D,$0A,$00
 
-AA_end_basic:
+
+.IMPORT EhBasic_SysCall_Input   ; non halting scan input device routine, defined by system
+.IMPORT EhBasic_SysCall_Output  ; send byte to output device, defined by system
+.IMPORT EhBasic_SysCall_Load    ; load BASIC program, defined by system
+.IMPORT EhBasic_SysCall_Save    ; save BASIC program, defined by system
+
+.SEGMENT "PAGE2_EHBASIC"
+; Do not put *anything* other into this segment please!
+
+ccflag:	.byte	$00			; ctrl-c flag		-	$00 = enabled
+ccbyte:	.byte	$00			; ctrl-c byte		-	GET needs this
+ccnull:	.byte	$00			; ctrl-c byte timeout	-	GET needs this
+VEC_CC:	.word	CTRLC			; ctrl c check vector
+VEC_IN:	.word	EhBasic_SysCall_Input	; non halting key input	-	monitor to set this (init'ed by IMPORT address)
+VEC_OUT:.word	EhBasic_SysCall_Output	; output vector		-	monitor to set this (init'ed by IMPORT address)
+VEC_LD:	.word	EhBasic_SysCall_Load	; load vector		-	monitor to set this (init'ed by IMPORT address)
+VEC_SV:	.word	EhBasic_SysCall_Save	; save vector		-	monitor to set this (init'ed by IMPORT address)

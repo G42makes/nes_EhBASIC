@@ -65,7 +65,7 @@ EhBasic! My statement is only true on parts written by me.
   (actually Py65 has one, though it was easier for me to start with an ncurses
   based one)
 
-# Instructions
+# Build instructions
 
 You need a UNIX-like operating system, with make, Python (including the
 curses module), and ca65 installed. You need to say 'make' for compilation.
@@ -73,4 +73,41 @@ You can also build/try the result with: 'make test'.
 
 pytest.asm is the "skeleton" uses basic.asm "core" for this test, pytest.asm
 also functions as an example how to use the "core" (also check Makefile for
--D stuffs).
+-D stuffs). Result is pytest.bin which should be used with the included
+Pythonic 6502 emulator. Project used pytest.cfg as the linker configuration
+file for ld65.
+
+# Patches
+
+Patches can be enabled with giving a -D statement to the assembler. Optionally
+you can write an "includer wrapper" which defines that needed patches and
+includes basic.asm then. For the Makefile, it means -DBLAH for option BLAH for
+"D" meaning "define". List of options/patches (without the -D part):
+
+## EHBASIC_PATCH_MIXED_CASE_KEYWORDS
+
+Patches the tokenizer. EhBASIC by default only allows upper cases BASIC
+keywords to be entered. It can be very annoying for a system having upper and
+lower case too. This patch allows any (even mixed) case the keywords to be
+entered, though on listing you will still see upper cased keywords only.
+
+Source of the patch: user ArnoldLayne of the 6502.org,
+http://forum.6502.org/viewtopic.php?f=5&t=4383
+
+## EHBASIC_PATCH_DISABLE_INVALID_BCD
+
+EhBASIC uses BCD mode at a single place to convert values to hex digits.
+It uses the so called "invalid BCD trick", which - said to be - a potential
+problem on some (?) CPUs. I am not sure about this, but anyway. Enabling
+this patch causes to stop using this BCD mode.
+
+Source of the patch: ??
+
+## EHBASIC_PATCH_DISABLE_ASK_MEMORY_SIZE
+
+EhBASIC asks the memory size to use. With this patch enabled, Ram_Top will
+be used without question, and all the code (and question string) won't be
+compiled in. This can be useful in some cases, if you know your memory
+size.
+
+Source of the patch: me (LGB)

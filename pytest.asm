@@ -25,15 +25,27 @@ EhBasic_InputBuffer_Size = 80
 .EXPORT EhBasic_Ram_base
 .EXPORT EhBasic_Ram_top
 EhBasic_Ram_base 	= $0300		; page aligned!
-EhBasic_Ram_top		= $C000		; Ram_top + 1, page aligned!
+.IMPORT __CORE_MEM_START__	; we use Ram_top as the start of EhBasic
+EhBasic_Ram_top		= __CORE_MEM_START__	; Ram_top + 1, page aligned!
 
 .SEGMENT "EHBASIC"
 
 ; You can defined the 'Ready' prompt here, so it's easy to set one what you like,
-; without the need to edit basic.asm
+; without the need to edit basic.asm. Must be a null terminated string with
+; the appropriate new line sequences before and behind (though you may want
+; a prompt without tailer newline seq)
 .EXPORT EhBasic_Ready_Prompt
 EhBasic_Ready_Prompt:
 	.BYTE   $0D,$0A,"Ready.",$0D,$0A,$00
+;	.BYTE	$0D,$0A,">",$00
+
+
+.EXPORT EhBasic_Banner_Pre
+.EXPORT EhBasic_Banner_Free
+EhBasic_Banner_Pre:		; printed *BEFORE* "bytes free"
+	.byte	"*** Enhanced 6502 BASIC 2.22 ***",$0D,$0A,$00
+EhBasic_Banner_Free:		; the text right after free mem + maybe other too
+	.byte   " BASIC bytes free.",$0D,$0A,$00
 
 
 ; Get key for EhBASIC, with *NO* wait.
@@ -52,7 +64,8 @@ no_input:
 .ENDPROC
 
 ; Putchar implementation for EhBASIC. Character to output is in A.
-; You should not modify A!
+; You should not modify A! ASLO you must have 'N', 'Z' flags to
+; reflect the content of A!
 .EXPORT EhBasic_SysCall_Output
 .PROC EhBasic_SysCall_Output
 	.BYTE TRAP_PUTCH
