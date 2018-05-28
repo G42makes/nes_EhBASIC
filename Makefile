@@ -9,9 +9,9 @@ PATCHDEFS	+= -DEHBASIC_PATCH_DISABLE_ASK_MEMORY_SIZE
 
 all: pytest.bin
 
-pytest.bin: basic.asm pytest.asm pytest.cfg Makefile
-	$(CA65) $(CA65OPTS) $(PATCHDEFS) basic.asm
-	$(CA65) $(CA65OPTS) pytest.asm
+pytest.bin: basic.a65 pytest.a65 pytest.cfg Makefile
+	$(CA65) $(CA65OPTS) $(PATCHDEFS) basic.a65
+	$(CA65) $(CA65OPTS) pytest.a65
 	$(LD65) -Ln pytest.lab -vm -m pytest.map -C pytest.cfg -o pytest.bin basic.o pytest.o
 
 test: pytest.bin
