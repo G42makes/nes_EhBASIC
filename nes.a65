@@ -1,0 +1,77 @@
+; Initialization and setup code for the NES side of this
+
+.SEGMENT "STARTUP"
+; STARTUP segment is the first, so the binary will begin with this
+JMP     main
+
+; EhBasic input buffer size. DO NOT used more than 127 bytes!
+.EXPORT EhBasic_InputBuffer_Size
+EhBasic_InputBuffer_Size = 80
+
+
+.EXPORT EhBasic_Ram_base
+.EXPORT EhBasic_Ram_top
+EhBasic_Ram_base        = $0300         ; page aligned!
+.IMPORT __RAM_START__   ; we use Ram_top as the start of EhBasic
+EhBasic_Ram_top         = __RAM_START__ ; Ram_top + 1, page aligned!
+
+.SEGMENT "EHBASIC"
+
+; You can defined the 'Ready' prompt here, so it's easy to set one what you like,
+; without the need to edit basic.asm. Must be a null terminated string with
+; the appropriate new line sequences before and behind (though you may want
+; a prompt without tailer newline seq)
+.EXPORT EhBasic_Ready_Prompt
+EhBasic_Ready_Prompt:
+	.BYTE   $0D,$0A,"Ready.",$0D,$0A,$00
+;	.BYTE	$0D,$0A,">",$00
+
+
+.EXPORT EhBasic_Banner_Pre
+.EXPORT EhBasic_Banner_Free
+EhBasic_Banner_Pre:		; printed *BEFORE* "bytes free"
+	.byte	"*** Enhanced 6502 BASIC 2.22 ***",$0D,$0A,$00
+EhBasic_Banner_Free:		; the text right after free mem + maybe other too
+	.byte   " BASIC bytes free.",$0D,$0A,$00
+
+
+; Get key for EhBASIC, with *NO* wait.
+; EhBasic excepts this routing to return key code in A with Carry set,
+; otherwise (if no key is pressed), Carry clear.
+.EXPORT EhBasic_SysCall_Input
+.PROC EhBasic_SysCall_Input
+	.BYTE TRAP_GETKEY_NOWAIT
+	CMP	#0	; trap does not set flags on modify A ...
+	BEQ	no_input
+	SEC
+	RTS
+no_input:
+	CLC
+	RTS
+.ENDPROC
+
+; Putchar implementation for EhBASIC. Character to output is in A.
+; You should not modify A! ASLO you must have 'N', 'Z' flags to
+; reflect the content of A!
+.EXPORT EhBasic_SysCall_Output
+.PROC EhBasic_SysCall_Output
+	.BYTE TRAP_PUTCH
+	RTS
+.ENDPROC
+
+; Load and save implementations.
+.EXPORT EhBasic_SysCall_Load
+.EXPORT EhBasic_SysCall_Save
+EhBasic_SysCall_Load:
+EhBasic_SysCall_Save:
+	RTS	; unimplemented for now ...
+
+
+
+.IMPORT EhBasic_cold_start
+.PROC main
+	CLD
+	LDX	#$FF
+	TXS
+	JMP	EhBasic_cold_start
+.ENDPROC
