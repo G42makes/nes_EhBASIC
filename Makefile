@@ -7,15 +7,10 @@ PATCHDEFS	+= -DEHBASIC_PATCH_MIXED_CASE_KEYWORDS
 PATCHDEFS	+= -DEHBASIC_PATCH_DISABLE_INVALID_BCD
 PATCHDEFS	+= -DEHBASIC_PATCH_DISABLE_ASK_MEMORY_SIZE
 
-all: pytest.bin
+all: ehbasic.nes
 
-pytest.bin: basic.a65 pytest.a65 pytest.cfg Makefile
+ehbasic.nes: basic.a65 
 	$(CA65) $(CA65OPTS) $(PATCHDEFS) basic.a65
-	$(CA65) $(CA65OPTS) pytest.a65
-	$(LD65) -Ln pytest.lab -vm -m pytest.map -C pytest.cfg -o pytest.bin basic.o pytest.o
-
-test: pytest.bin
-	python py65ehbasic.py pytest.bin 0xD000 0xD000
 
 clean:
 	rm -f *.o *.bin *.prg *.d81 *.d64 *.map	*.lab
