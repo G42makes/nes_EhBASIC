@@ -11,6 +11,7 @@ all: ehbasic.nes
 
 ehbasic.nes: basic.a65 
 	$(CA65) $(CA65OPTS) $(PATCHDEFS) basic.a65
+	$(LD65) $(LD65OPTS) -C nes.cfg -o basic.nes basic.o
 
 clean:
 	rm -f *.o *.bin *.prg *.d81 *.d64 *.map	*.lab
