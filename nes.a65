@@ -18,8 +18,8 @@ EhBasic_InputBuffer_Size = 80
 .EXPORT EhBasic_Ram_base
 .EXPORT EhBasic_Ram_top
 EhBasic_Ram_base        = $0300         ; page aligned!
-.IMPORT __RAM_START__   ; we use Ram_top as the start of EhBasic
-EhBasic_Ram_top         = __RAM_START__ ; Ram_top + 1, page aligned!
+.IMPORT __CORE_MEM_START__	; we use Ram_top as the start of EhBasic
+EhBasic_Ram_top		= __CORE_MEM_START__	; Ram_top + 1, page aligned!
 
 .SEGMENT "EHBASIC"
 
