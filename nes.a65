@@ -21,6 +21,10 @@ INES_SRAM   = 0 ; 1 = battery backed SRAM at $6000-7FFF
 	.word nes_startup
 	.word $0000
 
+; setup OAM for sprites	
+.segment "OAM"
+oam: .res 256        ; sprite OAM data to be uploaded by DMA
+
 .SEGMENT "STARTUP"
 ; STARTUP segment is the first, so the binary will begin with this
 nes_startup:
