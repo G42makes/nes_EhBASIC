@@ -25,6 +25,10 @@ INES_SRAM   = 0 ; 1 = battery backed SRAM at $6000-7FFF
 .segment "OAM"
 oam: .res 256        ; sprite OAM data to be uploaded by DMA
 
+; and load in some chr files
+.segment "CHR"
+.incbin "filler.chr"
+
 .SEGMENT "STARTUP"
 ; STARTUP segment is the first, so the binary will begin with this
 nes_startup:
