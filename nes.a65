@@ -17,7 +17,6 @@ INES_SRAM   = 0 ; 1 = battery backed SRAM at $6000-7FFF
 
 ; Setup the vectors
 .SEGMENT "VECTORS"
-org $fffa
 	.word $00
 	.word $00
 	.word nes_startup
