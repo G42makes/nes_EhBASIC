@@ -26,7 +26,7 @@ INES_SRAM   = 0 ; 1 = battery backed SRAM at $6000-7FFF
 oam: .res 256        ; sprite OAM data to be uploaded by DMA
 
 ; and load in some chr files
-.segment "CHR"
+.segment "CHARS"
 .incbin "filler.chr"
 
 .SEGMENT "STARTUP"
