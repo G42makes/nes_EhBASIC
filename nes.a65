@@ -21,7 +21,7 @@ INES_SRAM   = 0 ; 1 = battery backed SRAM at $6000-7FFF
 	.word nes_startup
 	.word $0000
 
-; setup OAM for sprites	
+; setup OAM for sprites
 .segment "OAM"
 oam: .res 256        ; sprite OAM data to be uploaded by DMA
 
@@ -85,8 +85,6 @@ nes_startup:
 ; We use illegal opcodes as traps from the emulator in this test!
 TRAP_PUTCH		= $02
 TRAP_GETKEY_NOWAIT	= $12
-TRAP_GETKEY_WAIT	= $22
-TRAP_GETKEY_STR_EXIT	= $32
 
 ; EhBasic input buffer size. DO NOT used more than 127 bytes!
 .EXPORT EhBasic_InputBuffer_Size
