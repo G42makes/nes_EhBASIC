@@ -8,3 +8,6 @@
 *.map
 *.lab
 *.nes
+*.nl
+*.labels.txt
+*.deb
