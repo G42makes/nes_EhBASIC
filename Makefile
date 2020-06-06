@@ -18,4 +18,4 @@ ehbasic.nes: basic.a65 nes.a65
 
 
 clean:
-	rm -f *.o *.bin *.prg *.d81 *.d64 *.map	*.lab
+	rm -f *.o *.bin *.prg *.d81 *.d64 *.map	*.lab *.nes *.nl *.labels.txt *.deb
