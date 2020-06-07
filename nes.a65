@@ -1,85 +1,40 @@
 ; Initialization and setup code for the NES side of this
+.include "nesdefs.a65"
 
-; NES ROM header
-.SEGMENT "HEADER"
+;;;;; NES CARTRIDGE HEADER
 
-INES_MAPPER = 0 ; 0 = NROM
-INES_MIRROR = 1 ; 0 = horizontal mirroring, 1 = vertical mirroring
-INES_SRAM   = 0 ; 1 = battery backed SRAM at $6000-7FFF
+	NES_HEADER 0,2,1,0 ; mapper 0, 2 PRGs, 1 CHR, horiz. mirror
 
-	.byte 'N', 'E', 'S', $1A ; ID
-	.byte $02 ; 16k PRG chunk count
-	.byte $01 ; 8k CHR chunk count
-	.byte INES_MIRROR | (INES_SRAM << 1) | ((INES_MAPPER & $f) << 4)
-	.byte (INES_MAPPER & %11110000)
-	.byte $0, $0, $0, $0, $0, $0, $0, $0 ; padding
-
-
-; Setup the vectors
-.SEGMENT "VECTORS"
-	.word $0000
-	.word nes_startup
-	.word $0000
-
-; setup OAM for sprites
-.segment "OAM"
-oam: .res 256        ; sprite OAM data to be uploaded by DMA
-
-; and load in some chr files
-.segment "CHARS"
-.incbin "filler.chr"
+TEMP_CHAR = $DE ; store the output char while we setup to display it
+CHAR_X = $E0		; on the line to output next char
+CHAR_Y = $E1		; which line to output next char
 
 .SEGMENT "STARTUP"
 ; STARTUP segment is the first, so the binary will begin with this
-nes_startup:
-	sei       ; mask interrupts
-	lda #0
-	sta $2000 ; disable NMI
-	sta $2001 ; disable rendering
-	sta $4015 ; disable APU sound
-	sta $4010 ; disable DMC IRQ
-	lda #$40
-	sta $4017 ; disable APU IRQ
-	cld       ; disable decimal mode
-	ldx #$FF
-	txs       ; initialize stack
-	; wait for first vblank
-	bit $2002
-	:
-		bit $2002
-		bpl :-
-	; clear all RAM to 0
-	lda #0
-	ldx #0
-	:
-		sta $0000, X
-		sta $0100, X
-		sta $0200, X
-		sta $0300, X
-		sta $0400, X
-		sta $0500, X
-		sta $0600, X
-		sta $0700, X
-		inx
-		bne :-
-	; place all sprites offscreen at Y=255
-	lda #255
-	ldx #0
-	:
-		sta oam, X
-		inx
-		inx
-		inx
-		inx
-		bne :-
-	; wait for second vblank
-	:
-		bit $2002
-		bpl :-
-	; NES is initialized, ready to begin!
-	; enable the NMI for graphical updates, and jump to our main program
-	lda #%10001000
-	sta $2000
+Start:
+	; wait for PPU warmup; clear CPU RAM
+	NES_INIT	; set up stack pointer, turn off PPU
+  jsr WaitSync	; wait for VSYNC
+  jsr ClearRAM	; clear RAM
+  jsr WaitSync	; wait for VSYNC (and PPU warmup)
+	; set palette and nametable VRAM
+	jsr SetPalette	; set palette colors
+	; reset PPU address and scroll registers
+  lda #0
+  sta PPU_ADDR
+  sta PPU_ADDR	; PPU addr = $0000
+  sta PPU_SCROLL
+  sta PPU_SCROLL  ; PPU scroll = $0000
+	lda #$20	;start on next line, rendering of line 0 is buggy CHAR_Y is << 5 to save math later
+	sta CHAR_Y		; Start Text in the Upper left
+	lda #$00
+	sta CHAR_X
+
+	; activate PPU graphics
+  lda #MASK_BG
+  sta PPU_MASK 	; enable rendering
+  lda #CTRL_NMI
+  sta PPU_CTRL	; enable NMI
 	JMP     main
 
 ; We use illegal opcodes as traps from the emulator in this test!
@@ -94,8 +49,9 @@ EhBasic_InputBuffer_Size = 80
 .EXPORT EhBasic_Ram_base
 .EXPORT EhBasic_Ram_top
 EhBasic_Ram_base        = $0300         ; page aligned!
-.IMPORT __CORE_MEM_START__	; we use Ram_top as the start of EhBasic
-EhBasic_Ram_top		= __CORE_MEM_START__	; Ram_top + 1, page aligned!
+;.IMPORT __CORE_MEM_START__	; we use Ram_top as the start of EhBasic
+;EhBasic_Ram_top		= __CORE_MEM_START__	; Ram_top + 1, page aligned!
+EhBasic_Ram_top		= $0500
 
 .SEGMENT "EHBASIC"
 
@@ -112,7 +68,7 @@ EhBasic_Ready_Prompt:
 .EXPORT EhBasic_Banner_Pre
 .EXPORT EhBasic_Banner_Free
 EhBasic_Banner_Pre:		; printed *BEFORE* "bytes free"
-	.byte	"*** Enhanced 6502 BASIC 2.22 ***",$0D,$0A,$00
+	.byte	"* Enhanced 6502 BASIC 2.22 *",$0D,$0A,$00
 EhBasic_Banner_Free:		; the text right after free mem + maybe other too
 	.byte   " BASIC bytes free.",$0D,$0A,$00
 
@@ -122,7 +78,7 @@ EhBasic_Banner_Free:		; the text right after free mem + maybe other too
 ; otherwise (if no key is pressed), Carry clear.
 .EXPORT EhBasic_SysCall_Input
 .PROC EhBasic_SysCall_Input
-	.BYTE TRAP_GETKEY_NOWAIT
+	;.BYTE TRAP_GETKEY_NOWAIT
 	CMP	#0	; trap does not set flags on modify A ...
 	BEQ	no_input
 	SEC
@@ -135,10 +91,84 @@ no_input:
 ; Putchar implementation for EhBASIC. Character to output is in A.
 ; You should not modify A! ASLO you must have 'N', 'Z' flags to
 ; reflect the content of A!
+
 .EXPORT EhBasic_SysCall_Output
 .PROC EhBasic_SysCall_Output
-	.BYTE TRAP_PUTCH
-	RTS
+	sta TEMP_CHAR
+	cmp #$20
+	bcc @nonprinting
+
+	jsr WaitSync	; TODO: run this every few chars instead
+
+	sta TEMP_CHAR			; save A, which contains the ASCII value of our char
+	lda #$20	; upper byte
+	sta PPU_ADDR
+	lda CHAR_Y	; lower byte
+	adc CHAR_X
+	sta PPU_ADDR
+
+	;we check if X is over 32 here, and increment Y if so
+	inc CHAR_X
+	lda CHAR_X
+	cmp #$20	;32 wide
+	bcc @skipX
+	;looks like CHAR_X is over 32, set it to 0
+	lda #$00
+	sta CHAR_X
+	clc
+	lda CHAR_Y
+	adc #$20
+	sta CHAR_Y
+	; use the carry bit to update the upper byte of the address
+	; http://cowlark.com/2018-02-27-6502-arithmetic/index.html
+@skipX:
+
+	lda #0
+	sta PPU_SCROLL
+	sta PPU_SCROLL  ; PPU scroll = $0000
+
+	lda TEMP_CHAR
+	sta PPU_DATA
+
+	rts
+@nonprinting:
+	;; act on the non-printing chars that we want to support
+	; http://www.asciitable.com/
+	; We could probably support these as well:
+	;  $07 BEL - play a tone
+	;  $08 BS - backspace - move back 1 and nuke the char
+	;  $09 TAB - 2-5 spaces skipped (how do we handle that with backspace)
+	;  $1B ESC - take action on escape command? maybe escape codes?
+	;
+	clc
+	lda TEMP_CHAR
+	cmp #$0D
+	beq @np_CR
+	cmp #$0A
+	beq @np_LF
+	jmp @np_NUL
+
+@np_CR:
+	;; CR: $0D : Carriage return
+	lda #0
+	sta CHAR_X
+	jmp @np_NUL
+
+@np_LF:
+	;; LF: $0A : Line Feed
+	clc
+	lda CHAR_Y
+	adc #$20
+	sta CHAR_Y
+	jmp @np_NUL
+
+@np_NUL:
+	;; NUL, aka $00, do nothing, also a good way to just hop here quickly
+	;; TODO, figure out why my scroll settings were moving around
+	lda #0
+	sta PPU_SCROLL
+	sta PPU_SCROLL  ; PPU scroll = $0000
+	rts
 .ENDPROC
 
 ; Load and save implementations.
@@ -157,3 +187,46 @@ EhBasic_SysCall_Save:
 	TXS
 	JMP	EhBasic_cold_start
 .ENDPROC
+
+;;;;; INTERRUPT HANDLERS
+
+NMIHandler:
+	rti		; return from interrupt
+
+
+; set palette colors
+SetPalette:
+; set PPU address to palette start
+	PPU_SETADDR $3f00
+  ldy #0
+:
+	lda Palette,y	; lookup byte in ROM
+	sta PPU_DATA	; store byte to PPU data
+  iny		; Y = Y + 1
+  cpy #32		; is Y equal to 32?
+	bne :-	; not yet, loop
+  rts		; return to caller
+
+;;;;; COMMON SUBROUTINES
+
+.include "nesppu.a65"
+
+Palette:
+	.byte $1f							;screen color
+	.byte $01,$11,$21,$00	;background 0
+  .byte $02,$12,$22,$00	;background 1
+  .byte $02,$11,$21,$00	;background 2
+  .byte $01,$12,$22,$00	;background 3
+  .byte $19,$29,$39,$00	;sprite 0
+  .byte $1a,$2a,$3a,$00	;sprite 1
+  .byte $1b,$2b,$3b,$00	;sprite 2
+  .byte $1c,$2c,$3c			;sprite 3
+
+;;;;; TILE SETS
+
+.segment "CHARS"
+  .incbin "filler.chr"
+
+;;;;; CPU VECTORS
+
+	NES_VECTORS

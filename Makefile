@@ -13,7 +13,7 @@ all: ehbasic.nes
 ehbasic.nes: basic.a65 nes.a65
 	$(CA65) $(CA65OPTS) $(PATCHDEFS) basic.a65
 	$(CA65) $(CA65OPTS) nes.a65
-	$(LD65) $(LD65OPTS) -C nes.cfg -Ln basic.labels.txt -o basic.nes basic.o nes.o
+	$(LD65) $(LD65OPTS) -C nes.cfg -Ln basic.labels.txt -o basic.nes nes.o basic.o
 	$(PYTHON) fceux_debug_symbols.py
 
 

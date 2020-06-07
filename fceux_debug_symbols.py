@@ -40,5 +40,4 @@ def label_to_nl(label_file, nl_file, range_min, range_max):
 
 if __name__ == "__main__":
     label_to_nl("basic.labels.txt", "basic.nes.ram.nl", 0x0000, 0x7FF)
-    label_to_nl("basic.labels.txt", "basic.nes.0.nl", 0x8000, 0xBFFF)
-    label_to_nl("basic.labels.txt", "basic.nes.1.nl", 0xC000, 0xFFFF)
+    label_to_nl("basic.labels.txt", "basic.nes.0.nl", 0x8000, 0xFFFF)
